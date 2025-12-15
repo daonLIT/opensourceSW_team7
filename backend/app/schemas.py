@@ -27,9 +27,6 @@ class FridgeIngredientCreate(BaseModel):
     unit: Optional[str] = None
     expected_expiry: Optional[date] = None
 
-    class Config:
-        from_attributes = True
-
 
 class FridgeIngredientOut(FridgeIngredientBase):
     id: int
@@ -114,24 +111,3 @@ class RecipeHistoryOut(BaseModel):
 
     class Config:
         orm_mode = True
-
-# 요청용 스키마
-class RecipeSuggestRequest(BaseModel):
-    ingredients: List[str]
-
-    class Config:
-        from_attributes = True
-
-
-# -------------------------------------------------------------
-# 분리배출 / 음식물 쓰레기 Q&A용 스키마
-# -------------------------------------------------------------
-
-class WasteQuestion(BaseModel):
-    question: str
-
-
-class WasteAnswerOut(BaseModel):
-    question: str
-    answer: str
-    sources: list[str]

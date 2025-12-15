@@ -1,15 +1,15 @@
-// app/ingredients.tsx
+// app/waste-analysis.tsx
 import React from "react";
 import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 
-export default function IngredientsScreen() {
+export default function WasteAnalysisScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.title}>🥕 식재료 관리</Text>
+        <Text style={styles.title}>🗑 음식물 쓰레기 분석</Text>
         <Text style={styles.desc}>
-          - Streamlit의 "식재료 등록 / 관리" 화면에 해당하는 곳입니다.{"\n"}
-          - 나중에 여기서 식재료 목록 조회, 추가/수정 기능을 구현합니다.
+          - 음식물 쓰레기 배출량 기록 및 변화 추이를 그래프로 보여주는 화면입니다.{"\n"}
+          - 추후 RN에서 차트 라이브러리(Recharts/ Victory 등)를 사용해 시각화합니다.
         </Text>
       </View>
     </SafeAreaView>
