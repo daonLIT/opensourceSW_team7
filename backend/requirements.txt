@@ -17,12 +17,22 @@ openai
 requests
 tavily-python
 python-dotenv
+google-generativeai
+pandas
+ 
 
 # ----- Utils -----
 pillow
 python-dateutil
 pytz
 
+
 # ----- Optional -----
 starlette
 apscheduler
+
+# ----- RAG -----
+chromadb
+sentence-transformers
+numpy
+pypdf
