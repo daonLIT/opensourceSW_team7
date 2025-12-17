@@ -54,6 +54,7 @@ def _postprocess_markdown(md: str) -> str:
 
     # 줄바꿈 과다 정리
     s = re.sub(r"\n{3,}", "\n\n", s)
+    s = s.replace("**", "").replace("\\n", "\n")
     return s
 
 # -------------------------------

@@ -154,7 +154,7 @@ export default function RecipeRecommendScreen() {
       const formatted = String(data.formatted ?? "")
         .replace(/\\n/g, "\n")   // ✅ 이게 핵심
         .replace(/\\t/g, "\t")
-        .replace(/\*\*/g, "");
+        .replace(/\*\*(.*?)\*\*/g, "$1");
       setFormattedMap((prev) => ({ ...prev, [key]: data.formatted ?? "" }));
     } catch (e) {
       console.error(e);
