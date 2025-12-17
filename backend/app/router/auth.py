@@ -4,11 +4,14 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func  # ✅ 날짜 비교용 함수
+import logging
 
 from app.db import get_db
 from app import models, schemas
 from app.services.auth_service import hash_password, verify_password, get_current_user
 from app.services.jwt_service import create_access_token
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -18,6 +21,11 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     """
     회원가입
     """
+    pw_bytes = user_in.password.encode("utf-8")
+    logger.info(f"[REGISTER] email={user_in.email}, name={user_in.name}")
+    logger.info(f"[REGISTER] password_len(chars)={len(user_in.password)}")
+    logger.info(f"[REGISTER] password_len(bytes)={len(pw_bytes)}")
+    logger.info(f"[REGISTER] password_preview={repr(user_in.password[:30])}")
     existed = db.query(models.User).filter(models.User.email == user_in.email).first()
     if existed:
         raise HTTPException(

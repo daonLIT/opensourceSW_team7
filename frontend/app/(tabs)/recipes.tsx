@@ -75,13 +75,13 @@ export default function RecipeRecommendScreen() {
 
     try {
       // ✅ 백엔드 API 호출 (헤더에 토큰 추가!)
-      const res = await fetch(`${API_BASE_URL}/api/recipes/recommend`, {
+      const res = await fetch(`${API_BASE_URL}/api/recommend/recipes`, {
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
             "Authorization": `Bearer ${auth.accessToken}` // 👈 이 줄이 꼭 있어야 합니다!
         },
-        body: JSON.stringify({ ingredients: selectedNames }),
+        body: JSON.stringify({ ingredients: selectedNames, top_k: 10 }),
       });
 
       if (!res.ok) {
@@ -92,7 +92,7 @@ export default function RecipeRecommendScreen() {
       }
 
       const data = await res.json(); 
-      setRecipes(data); 
+      setRecipes(data.results); 
     } catch (e) {
       console.error(e);
       Alert.alert("오류", "AI가 레시피를 생각하다가 잠들었어요. 다시 시도해주세요.");
@@ -165,21 +165,30 @@ export default function RecipeRecommendScreen() {
                 <ScrollView key={idx} style={styles.recipeCard}>
                   <Text style={styles.recipeBadge}>BEST {idx + 1}</Text>
                   <Text style={styles.recipeTitle}>{recipe.title}</Text>
-                  <Text style={styles.calories}>🔥 약 {recipe.calories} kcal</Text>
-                  
+                  <Text style={styles.calories}>👀 조회수 {recipe.views}</Text>
+
                   <View style={styles.divider} />
-                  
-                  <Text style={styles.sectionTitle}>🛒 재료</Text>
+
+                  <Text style={styles.sectionTitle}>✅ 내가 가진 재료</Text>
                   <View style={styles.tagRow}>
-                    {recipe.ingredients.map((ing: string, i: number) => (
+                    {recipe.matched_inputs.map((ing: string, i: number) => (
                       <View key={i} style={styles.tag}><Text style={styles.tagText}>{ing}</Text></View>
                     ))}
                   </View>
 
                   <View style={styles.divider} />
 
-                  <Text style={styles.sectionTitle}>🍳 조리법</Text>
-                  <Text style={styles.instructions}>{recipe.instructions}</Text>
+                  <Text style={styles.sectionTitle}>❗ 부족한 재료</Text>
+                  <View style={styles.tagRow}>
+                    {recipe.missing_inputs.map((ing: string, i: number) => (
+                      <View key={i} style={styles.tag}><Text style={styles.tagText}>{ing}</Text></View>
+                    ))}
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <Text style={styles.sectionTitle}>🔗 링크</Text>
+                  <Text style={styles.instructions}>{recipe.url}</Text>
                   
                   <View style={{ height: 100 }} />
                 </ScrollView>

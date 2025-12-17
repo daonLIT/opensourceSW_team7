@@ -25,6 +25,10 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     name = Column(String, nullable=True)
+    level = Column(Integer, default=1)       # 레벨 (기본 1)
+    points = Column(Integer, default=0)      # 포인트 (기본 0)
+    last_daily_check = Column(Date, nullable=True) # 마지막 접속일 (포인트 중복 지급 방지)
+
 
 
 # -----------------------------

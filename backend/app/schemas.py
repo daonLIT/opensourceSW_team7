@@ -1,5 +1,5 @@
 # app/schemas.py
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, date
 from typing import Optional, List, Any
 from .models import FridgeIngredientStatus
@@ -13,7 +13,9 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str
+    email: EmailStr
+    name: str
+    password: str = Field(min_length=1, max_length=72)
 
 
 class UserLogin(BaseModel):

@@ -28,6 +28,7 @@ pytz
 email-validator
 passlib
 PyJWT
+passlib[argon2]
 
 # ----- Optional -----
 starlette

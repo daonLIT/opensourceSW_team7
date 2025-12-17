@@ -7,7 +7,7 @@ from app.db import get_db
 from app import models
 from app.services.jwt_service import decode_token
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
