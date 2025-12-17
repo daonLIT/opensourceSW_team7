@@ -25,7 +25,9 @@ pandas
 pillow
 python-dateutil
 pytz
-
+email-validator
+passlib
+PyJWT
 
 # ----- Optional -----
 starlette
