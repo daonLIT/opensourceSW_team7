@@ -255,3 +255,4 @@ const styles = StyleSheet.create({
   analyzeText: { color: "white", fontSize: 16, fontWeight: "bold" },
   disabledBtn: { opacity: 0.7 },
 });
+//ㅁㄴㅇㅁㄴㅇ

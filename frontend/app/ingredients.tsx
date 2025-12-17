@@ -184,3 +184,4 @@ const styles = StyleSheet.create({
   emptyText: { color: "#9ca3af", fontSize: 18, fontWeight: "bold" },
   emptySubText: { color: "#64748b", fontSize: 14, marginTop: 8 },
 });
+//ㅁㄴㅇㅁㅇㄴㅁㅇ

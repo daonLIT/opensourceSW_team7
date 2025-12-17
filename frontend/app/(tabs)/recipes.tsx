@@ -240,3 +240,4 @@ const styles = StyleSheet.create({
   tagText: { color: "#e5e7eb" },
   instructions: { color: "#cbd5e1", lineHeight: 24, fontSize: 16 },
 });
+//ㅁㄴㅇㅁㄴ

@@ -31,3 +31,5 @@ export async function getAuth(): Promise<AuthState | null> {
 export async function clearAuth() {
   await AsyncStorage.removeItem(AUTH_KEY);
 }
+
+//ㅁㄴㅇㅁㄴㅇㅁㅇㄴ

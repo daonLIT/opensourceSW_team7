@@ -282,3 +282,4 @@ const styles = StyleSheet.create({
   disabledButton: { opacity: 0.7 },
   saveButtonText: { color: "#020617", fontSize: 16, fontWeight: "bold" },
 });
+//ㅁㄴㅇㅁㄴㅇㅁㅇㄴ

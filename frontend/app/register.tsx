@@ -188,3 +188,4 @@ const styles = StyleSheet.create({
   loginLinkButton: { alignItems: "center", marginTop: 12 },
   loginLinkText: { color: "#60a5fa", fontSize: 14 },
 });
+//ㅁㄴㅇㅁㄴㅇㄴㅁㅇ
