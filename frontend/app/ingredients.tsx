@@ -77,9 +77,40 @@ export default function IngredientsScreen() {
   };
 
   const deleteIngredient = async (id: number) => {
-      // (기존 삭제 로직과 동일 - 생략 가능하거나 필요시 추가)
-      // 테스트를 위해 일단 생략, 필요하면 이전 코드 복사해서 넣으세요.
-      Alert.alert("알림", "삭제 기능은 리스트가 보이면 테스트합시다!");
+    try {
+      console.log("🧹 삭제 시도:", id);
+
+      const auth = await getAuth();
+      if (!auth) {
+        Alert.alert("오류", "로그인이 필요합니다.");
+        return;
+      }
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/ingredients/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${auth.accessToken}`,
+          },
+        }
+      );
+
+      const text = await res.text();
+      console.log("🧾 삭제 응답:", res.status, text);
+
+      if (!res.ok) {
+        throw new Error(text || "삭제 실패");
+      }
+
+      // ✅ 화면에서도 즉시 제거
+      setItems((prev) => prev.filter((item) => item.id !== id));
+
+      Alert.alert("완료", "재료가 삭제되었습니다.");
+    } catch (e: any) {
+      console.error("❌ 삭제 실패:", e);
+      Alert.alert("삭제 실패", e.message ?? "알 수 없는 오류");
+    }
   };
 
   useEffect(() => {

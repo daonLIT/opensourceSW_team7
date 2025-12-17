@@ -24,6 +24,9 @@ router = APIRouter(
     tags=["ingredients"]
 )
 
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
+
 # ---------------------------------------------------------
 # 1. 재료 목록 조회
 # ---------------------------------------------------------
@@ -133,14 +136,31 @@ def delete_ingredient(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    로그인한 사용자의 냉장고 재료를 삭제한다.
+    """
+
+    # 🔍 디버깅 로그 (문제 생기면 바로 확인 가능)
+    print(f"🧹 삭제 요청: ingredient_id={ingredient_id}, user_id={current_user.id}")
+
+    # 1) 내 재료인지 확인
     item = db.query(FridgeIngredient).filter(
         FridgeIngredient.id == ingredient_id,
         FridgeIngredient.user_id == current_user.id
     ).first()
 
+    # 2) 없으면 404
     if not item:
-        raise HTTPException(status_code=404, detail="재료를 찾을 수 없습니다.")
+        raise HTTPException(
+            status_code=404,
+            detail="해당 재료를 찾을 수 없습니다."
+        )
 
+    # 3) 삭제
     db.delete(item)
     db.commit()
+
+    print("✅ 삭제 완료")
+
+    # 204 No Content → body 없음
     return None

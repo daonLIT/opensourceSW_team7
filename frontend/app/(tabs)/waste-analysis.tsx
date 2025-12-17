@@ -1,5 +1,6 @@
 // app/(tabs)/waste-analysis.tsx
 import { Ionicons } from "@expo/vector-icons";
+import Markdown from "react-native-markdown-display";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -14,6 +15,9 @@ import {
   View,
 } from "react-native";
 import BackHeader from "../../components/BackHeader"; // ✅ 공통 뒤로가기 헤더
+
+import { API_BASE_URL } from "@/constants/api";
+import { getAuth } from "@/util/utils/auth";
 
 type ChatMessage = {
   id: string;
@@ -49,11 +53,26 @@ export default function WasteAnalysisScreen() {
     setLoading(true);
 
     try {
+
+      const auth = await getAuth();
+        if (!auth?.accessToken) {
+          const botMsg: ChatMessage = {
+            id: Date.now().toString() + "-login",
+            role: "assistant",
+            content: "로그인이 필요해요! 먼저 로그인 해주세요.",
+          };
+          setMessages((prev) => [...prev, botMsg]);
+          setLoading(false);
+          return;
+        }
       // 2) 서버에 요청 (조장님이 맞춰서 구현하면 됨)
-      const res = await fetch("http://YOUR_SERVER_URL/api/waste-chat", {
+      const res = await fetch(`${API_BASE_URL}/api/waste/qa`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: question }),
+        headers: { 
+          "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.accessToken}`
+       },
+        body: JSON.stringify({ question }),
       });
 
       let replyText =
@@ -62,7 +81,7 @@ export default function WasteAnalysisScreen() {
       if (res.ok) {
         const data = await res.json();
         // 🔹 백엔드에서 { reply: "..." } 형태로 보내준다고 가정
-        replyText = data.reply ?? replyText;
+        replyText = data.answer ?? replyText;
       }
 
       // 3) AI 답변 추가
@@ -110,9 +129,11 @@ export default function WasteAnalysisScreen() {
             isUser ? styles.userBubble : styles.botBubble,
           ]}
         >
-          <Text style={isUser ? styles.userText : styles.botText}>
-            {item.content}
-          </Text>
+          {isUser ? (
+            <Text style={styles.userText}>{item.content}</Text>
+          ) : (
+            <Markdown style={mdStyles}>{item.content}</Markdown>
+          )}
         </View>
       </View>
     );
@@ -252,4 +273,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
+const mdStyles = {
+  body: { color: "#e5e7eb", fontSize: 14, lineHeight: 20 },
+  strong: { color: "#ffffff" },        // **굵게**
+  em: { color: "#e5e7eb" },            // *기울임*
+  bullet_list: { color: "#e5e7eb" },
+  ordered_list: { color: "#e5e7eb" },
+  heading1: { color: "#ffffff", fontSize: 18 },
+  heading2: { color: "#ffffff", fontSize: 16 },
+  code_inline: { backgroundColor: "#0b1220", color: "#e5e7eb" },
+};
 //ㅁㄴㅇㅁㄴㅇ
