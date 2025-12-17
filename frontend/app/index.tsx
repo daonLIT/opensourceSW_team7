@@ -1,39 +1,37 @@
 // app/index.tsx
-import { useRouter } from "expo-router";
-import React, { useEffect } from "react";
-import { View, ActivityIndicator } from "react-native";
-import { getAuth } from "@/util/utils/auth"; // ✅ getUser 대신 getAuth 가져오기
+import { Redirect } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { View, ActivityIndicator, Platform } from "react-native";
+import { getAuth } from "@/util/utils/auth";
 
 export default function Index() {
-  const router = useRouter();
+  const [to, setTo] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkLogin = async () => {
+    const run = async () => {
       try {
-        // ✅ getUser() 대신 getAuth() 사용
-        const auth = await getAuth();
-        
-        // 토큰이 있으면 로그인 된 것으로 간주 -> 메인으로 이동
-        if (auth && auth.accessToken) {
-          router.replace("/(tabs)");
-        } else {
-          // 없으면 로그인 화면으로 이동
-          router.replace("/login");
+        // ✅ 웹에서 getAuth가 불안정하면 일단 로그인 페이지로 보내기
+        if (Platform.OS === "web") {
+          setTo("/login");
+          return;
         }
-      } catch (e) {
-        // 에러 나면 안전하게 로그인 화면으로
-        console.error(e);
-        router.replace("/login");
+
+        const auth = await getAuth();
+        setTo(auth?.accessToken ? "/(tabs)" : "/login");
+      } catch {
+        setTo("/login");
       }
     };
-
-    checkLogin();
+    run();
   }, []);
 
-  return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0f172a" }}>
-      <ActivityIndicator size="large" color="#ffffff" />
-    </View>
-  );
+  if (!to) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0f172a" }}>
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
+    );
+  }
+
+  return <Redirect href={to as any} />;
 }
-//ㅁㄴㅇㅁㄴㅇ

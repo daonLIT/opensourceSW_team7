@@ -81,7 +81,7 @@ class RecipeRecommender:
 
         # ✅ 조리법 컬럼 파싱(컬럼명 후보 대응)
         inst_col = None
-        for c in ["조리법", "instructions", "만드는법", "요리방법"]:
+        for c in ["조리법", "조리순서", "instructions", "만드는법", "요리방법"]:
             if c in df.columns:
                 inst_col = c
                 break

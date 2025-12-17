@@ -11,7 +11,8 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
-  Dimensions
+  Dimensions,
+  Linking, 
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { API_BASE_URL } from "@/constants/api";
@@ -27,6 +28,9 @@ export default function RecipeRecommendScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [recipes, setRecipes] = useState<any[]>([]); // ✅ 여러 개 저장
   const [aiLoading, setAiLoading] = useState(false);
+
+  const [formattedMap, setFormattedMap] = useState<Record<string, string>>({});
+  const [rewriteLoadingMap, setRewriteLoadingMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchIngredients();
@@ -72,6 +76,8 @@ export default function RecipeRecommendScreen() {
 
     setAiLoading(true);
     setModalVisible(true);
+    setFormattedMap({});       
+    setRewriteLoadingMap({});
 
     try {
       // ✅ 백엔드 API 호출 (헤더에 토큰 추가!)
@@ -99,6 +105,72 @@ export default function RecipeRecommendScreen() {
       setModalVisible(false);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleRewrite = async (recipe: any, key: string) => {
+    const auth = await getAuth();
+    if (!auth?.accessToken) {
+      Alert.alert("오류", "로그인이 필요합니다.");
+      return;
+    }
+
+    // 이미 정리된 결과가 있으면 재호출 안 함
+    if (formattedMap[key]) return;
+
+    // 백엔드에서 내려주는 원문 조리법(둘 중 하나)
+    const rawText =
+      (recipe.instructions_raw_text ?? "").trim() ||
+      (Array.isArray(recipe.instructions_raw_list) ? recipe.instructions_raw_list.join("\n") : "");
+
+    if (!rawText.trim()) {
+      Alert.alert("조리법 없음", "이 레시피는 CSV에 조리법 데이터가 없어요.");
+      return;
+    }
+
+    setRewriteLoadingMap((prev) => ({ ...prev, [key]: true }));
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/recipes/rewrite-instructions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${auth.accessToken}`,
+        },
+        body: JSON.stringify({
+          title: recipe.title,
+          instructions_raw_text: rawText,
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.log("rewrite 서버 에러:", errText);
+        throw new Error("rewrite 서버 에러");
+      }
+      
+
+      const data = await res.json();
+      const formatted = String(data.formatted ?? "")
+        .replace(/\\n/g, "\n")   // ✅ 이게 핵심
+        .replace(/\\t/g, "\t")
+        .replace(/\*\*/g, "");
+      setFormattedMap((prev) => ({ ...prev, [key]: data.formatted ?? "" }));
+    } catch (e) {
+      console.error(e);
+      Alert.alert("오류", "조리법 정리에 실패했어요. 다시 시도해주세요.");
+    } finally {
+      setRewriteLoadingMap((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
+  // ✅ 여기 추가 (return 위)
+  const openUrl = async (url?: string) => {
+    if (!url) return;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("오류", "링크를 열 수 없어요.");
     }
   };
 
@@ -161,38 +233,87 @@ export default function RecipeRecommendScreen() {
             </View>
           ) : (
             <ScrollView horizontal pagingEnabled style={{ flex: 1 }}>
-              {recipes.map((recipe, idx) => (
-                <ScrollView key={idx} style={styles.recipeCard}>
-                  <Text style={styles.recipeBadge}>BEST {idx + 1}</Text>
-                  <Text style={styles.recipeTitle}>{recipe.title}</Text>
-                  <Text style={styles.calories}>👀 조회수 {recipe.views}</Text>
+              {recipes.map((recipe, idx) => {
+                const key = String(recipe.recipe_id ?? idx);
+                const formatted = formattedMap[key];
+                const rewriting = !!rewriteLoadingMap[key];
 
-                  <View style={styles.divider} />
+                return (
+                  <ScrollView key={key} style={styles.recipeCard}>
+                    <Text style={styles.recipeBadge}>BEST {idx + 1}</Text>
+                    <Text style={styles.recipeTitle}>{recipe.title}</Text>
+                    <Text style={styles.calories}>👀 조회수 {recipe.views}</Text>
 
-                  <Text style={styles.sectionTitle}>✅ 내가 가진 재료</Text>
-                  <View style={styles.tagRow}>
-                    {recipe.matched_inputs.map((ing: string, i: number) => (
-                      <View key={i} style={styles.tag}><Text style={styles.tagText}>{ing}</Text></View>
-                    ))}
-                  </View>
+                    <View style={styles.divider} />
 
-                  <View style={styles.divider} />
+                    <Text style={styles.sectionTitle}>✅ 내가 가진 재료</Text>
+                    <View style={styles.tagRow}>
+                      {(recipe.matched_inputs ?? []).map((ing: string, i: number) => (
+                        <View key={i} style={styles.tag}>
+                          <Text style={styles.tagText}>{ing}</Text>
+                        </View>
+                      ))}
+                    </View>
 
-                  <Text style={styles.sectionTitle}>❗ 부족한 재료</Text>
-                  <View style={styles.tagRow}>
-                    {recipe.missing_inputs.map((ing: string, i: number) => (
-                      <View key={i} style={styles.tag}><Text style={styles.tagText}>{ing}</Text></View>
-                    ))}
-                  </View>
+                    <View style={styles.divider} />
 
-                  <View style={styles.divider} />
+                    <Text style={styles.sectionTitle}>❗ 부족한 재료</Text>
+                    <View style={styles.tagRow}>
+                      {(recipe.missing_inputs ?? []).map((ing: string, i: number) => (
+                        <View key={i} style={styles.tag}>
+                          <Text style={styles.tagText}>{ing}</Text>
+                        </View>
+                      ))}
+                    </View>
 
-                  <Text style={styles.sectionTitle}>🔗 링크</Text>
-                  <Text style={styles.instructions}>{recipe.url}</Text>
-                  
-                  <View style={{ height: 100 }} />
-                </ScrollView>
-              ))}
+                    <View style={styles.divider} />
+
+                    {/* ✅ 링크 */}
+                    <Text style={styles.sectionTitle}>🔗 링크</Text>
+                    {recipe.url ? (
+                      <TouchableOpacity style={styles.linkBtn} onPress={() => openUrl(recipe.url)}>
+                        <Ionicons name="link" size={16} color="white" />
+                        <Text style={styles.linkText}>레시피 페이지 열기</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={styles.instructions}>링크가 없어요.</Text>
+                    )}
+
+                    <View style={styles.divider} />
+
+                    {/* ✅ 조리법(LLM 정리) */}
+                    <Text style={styles.sectionTitle}>🍳 조리법</Text>
+
+                    {!formatted && (
+                      <Text style={styles.hint}>
+                        조리법이 길고 읽기 어려울 수 있어요. 아래 버튼을 누르면 AI가 단계별로 정리해줘요.
+                      </Text>
+                    )}
+
+                    <TouchableOpacity
+                      style={[styles.rewriteBtn, (formatted || rewriting) && { opacity: 0.7 }]}
+                      onPress={() => handleRewrite(recipe, key)}
+                      disabled={!!formatted || rewriting}
+                    >
+                      {rewriting ? (
+                        <>
+                          <ActivityIndicator size="small" color="white" />
+                          <Text style={styles.rewriteText}>정리 중...</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Ionicons name="sparkles" size={16} color="white" />
+                          <Text style={styles.rewriteText}>{formatted ? "정리 완료" : "AI로 조리법 정리하기"}</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+
+                    {!!formatted && <Text style={styles.instructions}>{formatted}</Text>}
+
+                    <View style={{ height: 120 }} />
+                  </ScrollView>
+                );
+              })}
             </ScrollView>
           )}
         </SafeAreaView>
@@ -239,5 +360,31 @@ const styles = StyleSheet.create({
   tag: { backgroundColor: "#334155", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
   tagText: { color: "#e5e7eb" },
   instructions: { color: "#cbd5e1", lineHeight: 24, fontSize: 16 },
+
+  linkBtn: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#334155",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  linkText: { color: "white", fontWeight: "bold" },
+
+  hint: { color: "#94a3b8", lineHeight: 20, marginBottom: 10 },
+
+  rewriteBtn: {
+    backgroundColor: "#22c55e",
+    padding: 14,
+    borderRadius: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  rewriteText: { color: "white", fontWeight: "bold" },
 });
 //ㅁㄴㅇㅁㄴ

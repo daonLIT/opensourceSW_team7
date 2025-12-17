@@ -13,6 +13,7 @@ def _clean_raw_instructions(raw: str) -> str:
     # 과도한 공백 정리
     s = re.sub(r"\n{3,}", "\n\n", s)
     s = re.sub(r"[ \t]{2,}", " ", s)
+    s = s.replace("\\n", "\n").replace("\\t", "\t")
     return s
 
 def _make_cache_key(title: str, raw: str) -> str:
@@ -120,13 +121,13 @@ def _call_gemini_text(prompt: str) -> str:
     genai.configure(api_key=api_key)
 
     # 모델명은 네 프로젝트 정책에 맞게 바꿔도 됨
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
     resp = model.generate_content(
         prompt,
         generation_config={
             "temperature": 0.3,   # 너무 창작하지 않게
-            "max_output_tokens": 900,
+            "max_output_tokens": 3000,
         },
     )
 
