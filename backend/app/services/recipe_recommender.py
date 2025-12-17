@@ -79,6 +79,21 @@ class RecipeRecommender:
         df["재료_canon"] = df["재료_norm"].apply(lambda lst: [canonicalize(x) for x in lst])
         df["재료_canon_set"] = df["재료_canon"].apply(lambda lst: set(lst))
 
+        # ✅ 조리법 컬럼 파싱(컬럼명 후보 대응)
+        inst_col = None
+        for c in ["조리법", "instructions", "만드는법", "요리방법"]:
+            if c in df.columns:
+                inst_col = c
+                break
+
+        if inst_col:
+            df["조리법_list"] = df[inst_col].apply(parse_list_str)
+            # 리스트를 사람이 읽기 좋게 한 줄로 합친 원문도 준비
+            df["조리법_text"] = df["조리법_list"].apply(lambda lst: "\n".join([str(x).strip() for x in lst if str(x).strip()]))
+        else:
+            df["조리법_list"] = [[] for _ in range(len(df))]
+            df["조리법_text"] = ""
+
 
         # 조회수 "173,846" -> 173846 (선택: 추천 정렬에 활용 가능)
         if "조회수" in df.columns:
@@ -180,6 +195,8 @@ class RecipeRecommender:
                 "matched_count": int(matched_cnt),
                 "missing_count": int(len(missing_inputs)),
                 "score": float(score),
+                "instructions_raw_list": row.get("조리법_list", []),
+                "instructions_raw_text": row.get("조리법_text", ""),
             })
         return results
 

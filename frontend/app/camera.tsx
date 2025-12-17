@@ -101,7 +101,7 @@ export default function CameraScreen() {
           onPress: () => {
             // 결과값을 들고 '재료 추가' 화면으로 이동
             router.push({
-              pathname: "/ingredients-add",
+              pathname: "/ingredients_add",
               params: {
                 autoName: data.name,
                 autoCategory: data.category,

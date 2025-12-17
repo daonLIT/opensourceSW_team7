@@ -1,203 +1,142 @@
-# app/services/recipe_ai_service.py
 from __future__ import annotations
-
-from typing import List
-from pathlib import Path
 import os
-import json
+import re
+import hashlib
+from typing import Optional
 
-import pandas as pd
-import google.generativeai as genai
+# (선택) 메모리 캐시: 같은 조리법은 재요청 안 하게
+_REWRITE_CACHE: dict[str, str] = {}
 
-from app.schemas import RecipeSuggestion
+def _clean_raw_instructions(raw: str) -> str:
+    """원문 조리법 텍스트를 LLM에 보내기 전에 살짝 정리"""
+    s = str(raw).strip()
+    # 과도한 공백 정리
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    s = re.sub(r"[ \t]{2,}", " ", s)
+    return s
 
+def _make_cache_key(title: str, raw: str) -> str:
+    h = hashlib.sha256((title + "\n" + raw).encode("utf-8")).hexdigest()
+    return h[:24]
 
-# =====================================
-# 0. Gemini API 키 설정 (서버가 죽지 않도록 변경됨)
-# =====================================
+def _build_prompt(title: str, raw_instructions: str) -> str:
+    return f"""
+너는 한국어 요리 레시피 편집자야.
+아래 '원문 조리법'을 사용자가 바로 따라할 수 있도록 "단계별 레시피"로 다시 작성해줘.
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+[출력 규칙]
+- 반드시 1️⃣, 2️⃣, 3️⃣ ... 형태로 단계 번호를 붙여라
+- 각 단계는 "짧은 제목(한 줄)" + 설명(2~4줄)로 구성
+- 양념/재료/계량이 나오면 '• 불릿 리스트'로 정리
+- 원문에 없는 내용을 새로 만들지 말 것(추측 금지)
+- 말투는 친절하지만 과하게 길지 않게
+- 결과는 Markdown 텍스트로만 출력(추가 설명/머리말 금지)
 
-# API 키가 있을 때만 Gemini 설정
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-else:
-    print("⚠ WARNING: GEMINI_API_KEY가 설정되지 않음. 레시피 기능은 제한적으로 동작합니다.")
+[요리명]
+{title}
 
-GEMINI_MODEL_NAME = "gemini-2.5-flash"
-
-
-# =====================================
-# 1. CSV 로딩 (RAG 기반 데이터)
-# =====================================
-
-DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "korean_recipes1.csv"
-
-if not DATA_PATH.exists():
-    raise FileNotFoundError(f"RAG용 CSV 파일을 찾을 수 없습니다: {DATA_PATH}")
-
-
-def _load_csv(path: Path) -> pd.DataFrame:
-    for enc in ("cp949", "utf-8"):
-        try:
-            return pd.read_csv(path, encoding=enc)
-        except UnicodeDecodeError:
-            continue
-    return pd.read_csv(path)
-
-
-_df = _load_csv(DATA_PATH)
-
-_df["ingredients_list"] = (
-    _df["ingredients"]
-    .fillna("")
-    .apply(lambda s: [x.strip() for x in str(s).split(",") if x.strip()])
-)
-
-
-# =====================================
-# 2. RAG 후보 추출 로직
-# =====================================
-
-def _score_row(user_ings: List[str], row_ings: List[str]) -> int:
-    u = set(i.strip().lower() for i in user_ings)
-    r = set(i.strip().lower() for i in row_ings)
-    return len(u & r)
-
-
-def _retrieve_candidates(ingredients: List[str], top_k: int = 5) -> pd.DataFrame:
-    if not ingredients:
-        return _df.head(top_k).copy()
-
-    scores = _df["ingredients_list"].apply(
-        lambda row_ings: _score_row(ingredients, row_ings)
-    )
-    df_with_score = _df.copy()
-    df_with_score["score"] = scores
-
-    candidates = (
-        df_with_score[df_with_score["score"] > 0]
-        .sort_values("score", ascending=False)
-        .head(top_k)
-    )
-
-    if candidates.empty:
-        candidates = df_with_score.sort_values("score", ascending=False).head(top_k)
-
-    return candidates
-
-
-def _build_context_text(candidates: pd.DataFrame) -> str:
-    lines = []
-    for _, row in candidates.iterrows():
-        name = row.get("recipe_name", "")
-        ings = row.get("ingredients", "")
-        steps = row.get("steps", "")
-        lines.append(
-            f"- 레시피 이름: {name}\n"
-            f"  사용 재료: {ings}\n"
-            f"  조리 단계: {steps}\n"
-        )
-    return "\n".join(lines)
-
-
-# =====================================
-# 3. 메인 레시피 추천 함수
-#    (API 키 없어도 서버는 죽지 않음)
-# =====================================
-
-def suggest_recipes_from_ingredients(
-    ingredients: List[str],
-    num_suggestions: int = 3,
-) -> List[RecipeSuggestion]:
-
-    # -----------------------------
-    # API 키 없으면 fallback 반환
-    # -----------------------------
-    if not GEMINI_API_KEY:
-        return [
-            RecipeSuggestion(
-                title="레시피 기능 사용 불가",
-                ingredients=ingredients,
-                instructions="Gemini API Key가 설정되지 않아 레시피 추천 기능을 사용할 수 없습니다.",
-                source_url=None,
-                image_url=None,
-                calories=0.0,
-            )
-        ]
-
-    # -----------------------------
-    # 정상 로직 (RAG → Gemini)
-    # -----------------------------
-    candidates = _retrieve_candidates(ingredients, top_k=5)
-    context_text = _build_context_text(candidates)
-    ingredients_str = ", ".join(ingredients) if ingredients else "(재료 없음)"
-
-    model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-
-    prompt = f"""
-당신은 요리 레시피를 추천하는 AI 셰프입니다.
-
-[사용자 식재료]
-{ingredients_str}
-
-[참고용 CSV 레시피 데이터]
-{context_text}
-
-요청 조건:
-1) 총 3개의 레시피를 JSON 배열 형태로 생성
-2) 사용자가 가진 재료 기반으로 구성
-3) 마지막 레시피는 반드시 '새로운 메뉴'
-4) 각 객체는 title, ingredients, instructions, source_url, image_url, calories 필드를 포함
-JSON 배열만 출력해 주세요.
+[원문 조리법]
+{raw_instructions}
 """.strip()
 
-    response = model.generate_content(prompt)
+def _postprocess_markdown(md: str) -> str:
+    """LLM 출력이 너무 엉키지 않게 최소한의 후처리"""
+    s = (md or "").strip()
 
-    # Gemini 응답 텍스트 추출
+    # 혹시 "```" 코드펜스로 감싸서 주는 경우 제거
+    s = re.sub(r"^```(?:markdown)?\s*", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s*```$", "", s)
+
+    # 단계 번호가 전혀 없으면(실패) 그냥 원문 느낌으로라도 정리
+    if "1️⃣" not in s and "2️⃣" not in s:
+        s = "1️⃣ 조리하기\n" + s
+
+    # 줄바꿈 과다 정리
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    return s
+
+# -------------------------------
+# ✅ 핵심: LLM 호출 부분
+# -------------------------------
+
+def rewrite_instructions(
+    title: str,
+    raw_instructions: str,
+    *,
+    use_cache: bool = True,
+) -> str:
+    """
+    입력:
+      - title: 레시피 제목
+      - raw_instructions: 원문 조리법(줄줄이 텍스트)
+    출력:
+      - LLM이 단계별로 정리한 Markdown 문자열
+    """
+    title = (title or "").strip() or "레시피"
+    raw_instructions = _clean_raw_instructions(raw_instructions)
+
+    if not raw_instructions:
+        return ""
+
+    cache_key = _make_cache_key(title, raw_instructions)
+    if use_cache and cache_key in _REWRITE_CACHE:
+        return _REWRITE_CACHE[cache_key]
+
+    prompt = _build_prompt(title, raw_instructions)
+
+    # 1) 여기서 LLM 호출해서 텍스트를 받아오면 됨
+    #    프로젝트가 Gemini를 쓰고 있으니, 아래 중 한 가지 방식으로 구현하면 돼.
+    rewritten = _call_gemini_text(prompt)
+
+    # 2) 후처리
+    rewritten = _postprocess_markdown(rewritten)
+
+    if use_cache:
+        _REWRITE_CACHE[cache_key] = rewritten
+
+    return rewritten
+
+
+# ------------------------------------------------------------
+# ✅ Gemini 호출 구현 (A안: google-generativeai 라이브러리)
+# ------------------------------------------------------------
+def _call_gemini_text(prompt: str) -> str:
+    """
+    google-generativeai 패키지를 쓰는 방식.
+    이미 GEMINI_API_KEY를 .env로 쓰고 있으니 이 방식이 가장 깔끔함.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY가 설정되어 있지 않습니다.")
+
     try:
-        text = response.text
-    except AttributeError:
-        text = response.candidates[0].content.parts[0].text
+        import google.generativeai as genai
+    except ImportError as e:
+        raise RuntimeError(
+            "google-generativeai 패키지가 없습니다. "
+            "pip install google-generativeai 로 설치하세요."
+        ) from e
 
-    # JSON 형태로 파싱
+    genai.configure(api_key=api_key)
+
+    # 모델명은 네 프로젝트 정책에 맞게 바꿔도 됨
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    resp = model.generate_content(
+        prompt,
+        generation_config={
+            "temperature": 0.3,   # 너무 창작하지 않게
+            "max_output_tokens": 900,
+        },
+    )
+
+    # 라이브러리 응답 형태에 따라 text 접근
+    text = getattr(resp, "text", None)
+    if text:
+        return text.strip()
+
+    # 혹시 안전필터 등으로 text가 비면 후보에서 추출 시도
     try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        # Gemini 실패 시 fallback
-        fallback: List[RecipeSuggestion] = []
-        for _, row in candidates.head(num_suggestions).iterrows():
-            fallback.append(
-                RecipeSuggestion(
-                    title=row.get("recipe_name", "레시피"),
-                    ingredients=row.get("ingredients_list", []),
-                    instructions=row.get("steps", "CSV 기반 조리 단계"),
-                    source_url=None,
-                    image_url=None,
-                    calories=0.0,
-                )
-            )
-        return fallback
-
-    # Pydantic 형태로 변환
-    suggestions: List[RecipeSuggestion] = []
-    for item in data:
-        suggestions.append(
-            RecipeSuggestion(
-                title=item.get("title"),
-                ingredients=item.get("ingredients", []),
-                instructions=item.get("instructions"),
-                source_url=item.get("source_url"),
-                image_url=item.get("image_url"),
-                calories=float(item.get("calories") or 0.0),
-            )
-        )
-
-    return suggestions
-
-
-# =====================================
-# RAG 초기화 (필요 없음, 빈 함수로 유지)
-# =====================================
-def init_recipe_rag() -> None:
-    return
+        return resp.candidates[0].content.parts[0].text.strip()  # type: ignore
+    except Exception:
+        return ""

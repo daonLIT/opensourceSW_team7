@@ -6,7 +6,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .db import Base, engine
 from .router import ingredients, waste, recipes, auth
-from app.services.recipe_ai_service import init_recipe_rag
 from app.router.recipe_recommend import router as recipe_recommend_router
 import os
 print("Loaded API KEY:", os.getenv("GEMINI_API_KEY"))

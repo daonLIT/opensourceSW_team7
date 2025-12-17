@@ -1,11 +1,13 @@
 # app/router/recipes.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from app.db import get_db
 from app import models, schemas
-from app.services.recipe_ai_service import suggest_recipes_from_ingredients
+from app.services.recipe_ai_service import rewrite_instructions
 from app.services.auth_service import get_current_user
+
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
@@ -24,7 +26,7 @@ def suggest_recipes(
     if not ingredient_names:
         raise HTTPException(status_code=400, detail="ingredients 리스트가 비어 있습니다.")
 
-    suggestions = suggest_recipes_from_ingredients(ingredient_names)
+    suggestions = rewrite_instructions(ingredient_names)
 
     recipe_objs: list[models.Recipe] = []
     for s in suggestions:
@@ -139,3 +141,22 @@ def list_history(
         h.recipe = recipe_map.get(h.recipe_id)
 
     return history
+
+class RewriteReq(BaseModel):
+    title: str
+    instructions_raw_list: list[str] | None = None
+    instructions_raw_text: str | None = None
+
+@router.post("/rewrite-instructions")
+def rewrite(req: RewriteReq):
+    raw = ""
+    if req.instructions_raw_list:
+        raw = "\n".join([x.strip() for x in req.instructions_raw_list if x and x.strip()])
+    elif req.instructions_raw_text:
+        raw = req.instructions_raw_text.strip()
+
+    if not raw:
+        return {"formatted": ""}
+
+    formatted = rewrite_instructions(title=req.title, raw_instructions=raw)
+    return {"formatted": formatted}
