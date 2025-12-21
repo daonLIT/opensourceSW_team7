@@ -5,7 +5,7 @@ from app.services.recipe_recommender import RecipeRecommender
 
 router = APIRouter(prefix="/api/recommend", tags=["recommend"])
 
-recommender = RecipeRecommender(csv_name="recipes_preprocessed.csv")
+recommender = RecipeRecommender(csv_name="recipe_main_clustering.csv")
 
 class RecommendReq(BaseModel):
     ingredients: List[str]

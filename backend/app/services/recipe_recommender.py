@@ -66,7 +66,7 @@ def canonicalize(token_norm: str) -> str:
     return token_norm
 
 class RecipeRecommender:
-    def __init__(self, csv_name: str = "recipes_preprocessed.csv"):
+    def __init__(self, csv_name: str = "recipe_main_clustering.csv"):
         self.csv_path = DATA_DIR / csv_name
         self.df: pd.DataFrame | None = None
 
