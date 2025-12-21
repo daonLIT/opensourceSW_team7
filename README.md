@@ -1,128 +1,198 @@
-# streamlit_pr
+# 🧊 냉장고를 지켜줘 (Save My Fridge)
 
+1인 가구의 식재료 낭비를 줄이기 위한 **스마트 냉장고 관리 서비스**입니다.  
+본 프로젝트는 **FastAPI 백엔드 + Expo(React Native) 프론트엔드** 구조로 구성되어 있으며,  
+식재료 관리, AI 인식, 레시피 추천, 음식물 쓰레기 분석 기능을 제공합니다.
+
+---
 ## 역할 분담
 
-- 최다온: 음식물 쓰레기 발생량 기록 & 감소 분석, 포인트 제도 (Gamification)
+- 최다온: 백엔드 전체 구조, 코어기능
 - 유용우: 음식정보 csv파일 만들기, 쓰레기/플라스틱 분리배출 가이드
 - 김영우: 소비기한 알리미, 식재료 보관 방법 TIP
 - 김재민: 레시피추천, 칼로리 & 영양 정보
 
-# 🧊 냉장고를 지켜줘  
-Streamlit 기반 냉장고 관리 서비스로, 식재료 소비기한 알림·레시피 추천·음식물 쓰레기 감소 분석 등을 제공하는 스마트 식재료 관리 시스템입니다.
+---
+
+## 🏗 시스템 아키텍처
+
+- **Backend**: FastAPI (API 서버, AI 처리, DB 관리)
+- **Frontend**: Expo + React Native (모바일 / 웹 UI)
+- **AI**: YOLOv8, Gemini API
+- **DB**: SQLite (개발 환경)
 
 ---
 
--- csv파일 만들기
+## ✨ 주요 기능
 
-## 📘 프로젝트 소개
+### 🥬 냉장고 재료 관리
+- 재료 목록 조회 / 추가 / 삭제
+- 사용자별 냉장고 재료 DB 관리
 
-### 📝 가제  
-**냉장고를 지켜줘 (Save My Fridge)**
+### 📷 AI 이미지 인식
+- 재료 사진 촬영 또는 업로드
+- YOLOv8 기반 식재료 자동 인식
+- 인식 결과를 재료 입력 화면에 자동 반영
 
-### 📝 한줄 소개  
-냉장고 속 식재료를 입력하면, 소비기한·레시피·쓰레기 배출량·보관법 등을 알려주는 **스마트 냉장고 관리 서비스**
+### 🍳 레시피 추천
+- 냉장고 보유 재료 기반 추천
+- CSV 기반 클러스터링 추천 로직 사용
+- 부족한 재료 표시
 
-### 🎯 프로젝트 목적  
-- 1인 가구의 **식재료 낭비 줄이기**
-- **유통기한 관리** 자동화  
-- **음식물 쓰레기 줄이기**  
-- 배달 음식 재사용까지 포함한 **종합 식생활 관리 서비스 구축**
+### ♻️ 음식물 쓰레기 관리
+- 버려진 식재료, 양, 사유 기록
+- 날짜순 조회
 
----
-
-## 🔥 Core Features (핵심 기능)
-
-###1️⃣ 소비기한 알리미 (Expiration Alerts)
-- 입력된 식재료의 소비기한·유통기한을 자동 계산  
-- 임박한 순서대로 정렬  
-- 색상/지표(metric) 기반 시각화  
-- Streamlit metric 기능(Task 2 응용)
+### 🗑 분리배출 / 음식물 쓰레기 Q&A
+- Gemini 기반 자연어 질문 응답
+- 공식 문서 기반 분리배출 안내 제공
 
 ---
 
-### 2️⃣ 레시피 추천 (+배달 음식 활용)
-- 냉장고 속 재료 기반 레시피 추천  
-- 부족한 재료 표시  
-- 배달 음식 업사이클 레시피 제공  
-  - 예: 남은 치킨 → 치킨마요덮밥, 닭죽  
-  - 남은 김치/소스 활용법
+## 🧱 기술 스택
+
+### Backend
+- FastAPI
+- SQLAlchemy
+- SQLite
+- YOLOv8 (Ultralytics)
+- Gemini API (google-generativeai)
+
+### Frontend
+- Expo
+- React Native
+- TypeScript
+- Expo Router
+- Fetch API
 
 ---
 
-### 3️⃣ 음식물 쓰레기 발생량 기록 & 감소 분석
-- 버려진 음식물 기록  
-- 주간·월간 기준 음식물 쓰레기 증가/감소량 비교  
-- 바 차트/라인 차트로 시각화 (Task 4 chart 사용 가능)  
-- 감소량 기반 포인트 보상 기능과 연동
+## 📁 프로젝트 구조
+
+```bash
+backend/
+ ├─ app/
+ │   ├─ main.py
+ │   ├─ db.py
+ │   ├─ models.py
+ │   ├─ schemas.py
+ │   ├─ router/
+ │   │   ├─ auth.py
+ │   │   ├─ ingredients.py
+ │   │   ├─ recipes.py
+ │   │   ├─ recipe_recommend.py
+ │   │   └─ waste.py
+ │   ├─ services/
+ │   │   ├─ yolo_service.py
+ │   │   ├─ recipe_recommender.py
+ │   │   ├─ recipe_ai_service.py
+ │   │   └─ waste_ai_service.py
+ │   ├─ data/
+ │   │   ├─ recipe_main_clustering.csv
+ │   │   └─ waste_knowledge.json
+ │   └─ vector_store.py
+ ├─ fridge.db
+ ├─ yolov8n.pt
+ ├─ requirements.txt
+ └─ .env
+
+frontend/
+ ├─ app/
+ ├─ assets/
+ ├─ components/
+ ├─ constants/
+ ├─ hooks/
+ ├─ scripts/
+ ├─ src/
+ ├─ util/
+ ├─ app.json
+ ├─ package.json
+ └─ tsconfig.json
+```
 
 ---
 
-### 4️⃣ 쓰레기/플라스틱 분리배출 가이드
-- 식재료 껍질·포장지의 분리배출 기준 제공  
-- 배달 음식 용기 종류별 올바른 재활용 안내  
-- 분리배출 실천 시 포인트 제공 가능
+## 🚀 실행 방법
+
+### Backend 실행
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+`.env` 파일 생성 (backend 경로):
+
+```env
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+```
+
+서버 실행:
+
+```bash
+uvicorn app.main:app --reload
+```
 
 ---
 
-### 5️⃣ 식재료 보관 방법 TIP
-- 식재료별 적정 보관 온도/습도  
-- 냉동/냉장 구분 기준  
-- 저장 기간 및 보관 팁 제공  
-- Tabs/Expander(Task 6) 활용하여 정돈된 UI 구성 예정
+### Frontend 실행
+
+```bash
+cd frontend
+npm install
+npx expo start
+```
+
+- Expo Go 앱 또는 웹 브라우저에서 실행 가능
 
 ---
 
-### 6️⃣ 칼로리 & 영양 정보
-- 레시피 또는 재료 기반 칼로리 계산  
-- 1인분 기준 칼로리 표시  
-- 향후 탄단지 비율까지 확장 가능  
+## ⚠️ 프론트엔드 API 주소 설정 (중요)
+
+프론트엔드는 백엔드와 통신하기 위해  
+`constants/api.ts` 파일에 정의된 `API_BASE_URL`을 사용합니다.
+
+현재 기본값은 아래와 같이 placeholder 상태입니다.
+
+```ts
+export const API_BASE_URL = "http://yourip:8000";
+```
+
+### 🔧 반드시 본인 환경에 맞게 수정해야 합니다
+
+백엔드를 실행하는 **PC의 IP 주소**로 `yourip` 부분을 변경해야 합니다.
+
+#### 예시
+
+- 같은 Wi-Fi의 다른 기기(휴대폰, Expo Go)에서 접속할 경우:
+```ts
+export const API_BASE_URL = "http://192.168.0.12:8000";
+```
+
+> IP 주소는 `ipconfig`(Windows) 또는 `ifconfig` / `ip a`(Mac/Linux) 명령어로 확인할 수 있습니다.
+
+### 🚨 설정하지 않으면 발생하는 문제
+- 프론트 화면은 정상 실행되지만
+- API 요청이 실패하여 데이터가 표시되지 않습니다.
+
+프론트 실행 전 반드시 `API_BASE_URL` 설정을 확인하세요.
 
 ---
 
-### 7️⃣ 포인트 제도 (Gamification)
-포인트 누적을 통해 사용자 참여를 유도하는 게이미피케이션 기능
+## 🔌 프론트 ↔ 백엔드 연동 흐름
 
-**포인트 예시 기준**
-- 임박 재료 사용: +30점  
-- 음식물 쓰레기 감소: +40점  
-- 배달음식 업사이클 레시피 실행: +20점  
-- 1주일 동안 쓰레기 발생량 감소: +50점  
-
-**활용 예**  
-- 레벨/뱃지 부여  
-- 친환경 등급 시스템  
-- 진행도 바(Task 7 progress bar 응용)
+1. 프론트엔드에서 재료 사진 촬영
+2. `/api/ingredients/analyze` 호출 → YOLO 분석
+3. 분석 결과를 재료 추가 화면에 자동 반영
+4. `/api/recommend/recipes`로 레시피 추천 요청
+5. `/api/waste/qa`로 분리배출 질문 처리
 
 ---
 
-## 🧠 브레인스토밍 (초기 아이디어)
-> 보고서 제출 시 아래 이미지 포함  
-- 식재료 유통기한 관리  
-- 레시피 자동 추천  
-- 배달 음식 재활용  
-- 쓰레기 처리 가이드  
-- 음식물 쓰레기 감소 피드백  
-- 포인트 제도 도입  
+## 📝 참고 사항
+- 개발 환경 기준 CORS 허용
+- Gemini API 키가 없으면 AI 기능 제한
 
 ---
-
-## 🛠 기술 스택 (Tech Stack)
-
-| 분야 | 사용 기술 |
-|------|-----------|
-| 언어 | Python 3.x |
-| 프레임워크 | Streamlit |
-| 데이터 처리 | Pandas, datetime |
-| 시각화 | Streamlit chart, bar chart |
-| 기타 | PIL, numpy |
-
----
-
-## 🧪 사용 흐름 (User Flow)
-
-1️⃣ 냉장고에 있는 식재료 입력  
-2️⃣ 소비기한 자동 계산 → 임박 재료 알림  
-3️⃣ 레시피 추천 (냉장고·배달음식 모두 지원)  
-4️⃣ 요리 후 남은 쓰레기 처리 가이드 확인  
-5️⃣ 음식물 쓰레기 감소량 분석  
-6️⃣ 포인트 적립으로 동기부여  
