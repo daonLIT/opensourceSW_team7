@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { useColorScheme } from 'react-native'; // 리액트 네이티브 기본 훅 사용
-
+// ㄱㅇㅎ
 export default function TabLayout() {
   // 다크 모드인지 확인
   const colorScheme = useColorScheme();

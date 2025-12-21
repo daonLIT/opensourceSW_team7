@@ -1,3 +1,4 @@
+//123123
 // app/(tabs)/index.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -9,6 +10,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 
 import Animated, {
@@ -22,9 +24,11 @@ import { API_BASE_URL } from "../../constants/api";
 
 // ⭐ 유통기한 기능
 import { getExpiringSoonCount } from "@/util/utils/db";
-import { getUser } from "@/util/utils/auth";
+// ❌ 수정 전: import { getUser } from "@/util/utils/auth";
+// ✅ 수정 후: getAuth 사용
+import { getAuth } from "@/util/utils/auth";
 
-// ⭐ 커스텀 모달
+// ⭐ 커스텀 모달 (파일이 없다면 에러 날 수 있음 - 확인 필요)
 import ExpiryAlertModal from "@/components/ExpiryAlertModal";
 
 type BackendStatus = "idle" | "ok" | "error";
@@ -86,13 +90,26 @@ export default function FridgeHomeScreen() {
 
     // ⭐ 문이 열릴 때 + 아직 알람 안 뜬 경우
     if (nextState === true && !alertShown) {
-      const user = await getUser();
-      if (user) {
-        const count = await getExpiringSoonCount(user.id);
-        if (count > 0) {
-          setExpiryCount(count);
-          setExpiryModalVisible(true); // ⭐ 커스텀 모달 열기
+      try {
+        const auth = await getAuth();
+        
+        // 1. 로그인 정보가 있는지 확인
+        if (auth && auth.user) {
+          
+          // ✅ [핵심] 여기서 빨간 줄을 없앱니다!
+          // 숫자인 ID를 문자열로 확실하게 변환해서 변수에 담음
+          const userIdStr = String(auth.user.id);
+          
+          // 변환된 문자열(userIdStr)을 넣음
+          const count = await getExpiringSoonCount(userIdStr);
+          
+          if (count > 0) {
+            setExpiryCount(count);
+            setExpiryModalVisible(true); 
+          }
         }
+      } catch (e) {
+        console.log("알림 확인 중 에러:", e);
       }
       setAlertShown(true);
     }

@@ -12,42 +12,60 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    ScrollView
 } from "react-native";
+
+import { API_BASE_URL } from "@/constants/api";
 
 export default function RegisterScreen() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [nickname, setNickname] = useState(""); // 이름(닉네임)
+  const [loading, setLoading] = useState(false);
 
-  // 👉 회원가입 버튼
-  const handleRegister = () => {
-  if (!email || !nickname || !userId || !password) {
-    Alert.alert("회원가입 실패", "모든 정보를 입력해 주세요.");
-    return;
-  }
+  // 👉 회원가입 버튼 클릭 시
+  const handleRegister = async () => {
+    if (!email || !password || !nickname) {
+      Alert.alert("입력 오류", "이메일, 비밀번호, 닉네임을 모두 입력해주세요.");
+      return;
+    }
 
-  // TODO: 나중에 여기서 서버에 회원가입 요청 보내기
-  // const res = await signUpAPI({ email, nickname, userId, password });
-  // if (!res.ok) { Alert.alert("회원가입 실패", res.message); return; }
+    setLoading(true);
 
-  Alert.alert("회원가입 완료", "이제 로그인 화면으로 이동합니다.", [
-    {
-      text: "확인",
-      onPress: () => {
-        // 회원가입 후 로그인 화면으로 이동
-        router.replace("/login");
-      },
-    },
-  ]);
-};
+    try {
+      // ✅ 수정 포인트: /api를 빼고 /auth/register 로 요청
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          name: nickname, // 백엔드 스키마(UserCreate)에 name 필드가 있음
+        }),
+      });
 
-  // 👉 다시 로그인으로 돌아가기
-  const goToLogin = () => {
-    router.replace("/login");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        Alert.alert("회원가입 실패", errorData.detail || "이미 가입된 이메일이거나 오류가 발생했습니다.");
+        return;
+      }
+
+      // 성공 시
+      Alert.alert("가입 성공", "회원가입이 완료되었습니다! 로그인해주세요.", [
+        {
+          text: "확인",
+          onPress: () => router.replace("/login"),
+        },
+      ]);
+
+    } catch (e) {
+      console.error(e);
+      Alert.alert("연결 오류", "서버와 연결할 수 없습니다. IP주소나 포트를 확인해주세요.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,24 +74,24 @@ export default function RegisterScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={styles.container}>
-          {/* 상단 제목 영역 */}
+        <ScrollView contentContainerStyle={styles.container}>
+          {/* 상단 제목 */}
           <View style={styles.header}>
-            <Text style={styles.logoEmoji}>🥬</Text>
-            <Text style={styles.title}>냉장고를 지켜줘</Text>
+            <Text style={styles.logoEmoji}>👋</Text>
+            <Text style={styles.title}>환영합니다!</Text>
             <Text style={styles.subtitle}>
-              회원가입을 하고 나의 냉장고를 관리해 보세요.
+              회원가입하고 나만의 스마트한 냉장고를 만들어보세요.
             </Text>
           </View>
 
-          {/* 입력 폼 (캡처처럼 4개 필드) */}
+          {/* 입력 폼 */}
           <View style={styles.form}>
             {/* 이메일 */}
             <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={18} color="#9ca3af" />
+              <Ionicons name="mail-outline" size={20} color="#9ca3af" />
               <TextInput
                 style={styles.input}
-                placeholder="이메일"
+                placeholder="이메일 (example@email.com)"
                 placeholderTextColor="#6b7280"
                 value={email}
                 onChangeText={setEmail}
@@ -84,32 +102,19 @@ export default function RegisterScreen() {
 
             {/* 닉네임 */}
             <View style={styles.inputWrapper}>
-              <Ionicons name="person-outline" size={18} color="#9ca3af" />
+              <Ionicons name="person-outline" size={20} color="#9ca3af" />
               <TextInput
                 style={styles.input}
-                placeholder="닉네임"
+                placeholder="닉네임 (이름)"
                 placeholderTextColor="#6b7280"
                 value={nickname}
                 onChangeText={setNickname}
               />
             </View>
 
-            {/* 아이디 */}
-            <View style={styles.inputWrapper}>
-              <Ionicons name="id-card-outline" size={18} color="#9ca3af" />
-              <TextInput
-                style={styles.input}
-                placeholder="아이디"
-                placeholderTextColor="#6b7280"
-                value={userId}
-                onChangeText={setUserId}
-                autoCapitalize="none"
-              />
-            </View>
-
             {/* 비밀번호 */}
             <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={18} color="#9ca3af" />
+              <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" />
               <TextInput
                 style={styles.input}
                 placeholder="비밀번호"
@@ -120,118 +125,67 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-            {/* 버튼들 */}
+            {/* 회원가입 버튼 */}
             <TouchableOpacity
-              style={styles.loginButton}
+              style={[styles.registerButton, loading && styles.disabledButton]}
               onPress={handleRegister}
+              disabled={loading}
             >
-              <Text style={styles.loginButtonText}>회원가입</Text>
+              <Text style={styles.registerButtonText}>
+                {loading ? "가입 중..." : "회원가입"}
+              </Text>
             </TouchableOpacity>
 
+            {/* 로그인으로 돌아가기 */}
             <TouchableOpacity
-              style={styles.registerButton}
-              onPress={goToLogin}
+              style={styles.loginLinkButton}
+              onPress={() => router.replace("/login")}
             >
-              <Text style={styles.registerButtonText}>로그인으로 돌아가기</Text>
+              <Text style={styles.loginLinkText}>이미 계정이 있으신가요? 로그인</Text>
             </TouchableOpacity>
           </View>
-
-          {/* 푸터 */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>LogMeal AI Fridge · v0.1</Text>
-          </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#020617",
-  },
+  safeArea: { flex: 1, backgroundColor: "#0f172a" },
   container: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 40,
-    paddingBottom: 16,
-    justifyContent: "space-between",
+    paddingBottom: 20,
+    justifyContent: "center",
   },
-  header: {
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  logoEmoji: {
-    fontSize: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#e5e7eb",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#9ca3af",
-    marginTop: 4,
-  },
-  form: {
-    gap: 12,
-  },
+  header: { alignItems: "center", marginBottom: 32 },
+  logoEmoji: { fontSize: 48, marginBottom: 10 },
+  title: { fontSize: 28, fontWeight: "bold", color: "#e5e7eb", marginBottom: 8 },
+  subtitle: { fontSize: 14, color: "#94a3b8", textAlign: "center" },
+  form: { gap: 16 },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    backgroundColor: "#1e293b",
     borderRadius: 12,
-    backgroundColor: "#020617",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderWidth: 1,
-    borderColor: "#1f2937",
-    gap: 8,
+    borderColor: "#334155",
+    gap: 12,
   },
-  input: {
-    flex: 1,
-    color: "#e5e7eb",
-    fontSize: 14,
-  },
-  errorText: {
-    color: "#f97316",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  loginButton: {
-    marginTop: 8,
-    backgroundColor: "#3b82f6",
-    paddingVertical: 12,
-    borderRadius: 999,
-    alignItems: "center",
-  },
-  loginButtonText: {
-    color: "white",
-    fontSize: 15,
-    fontWeight: "600",
-  },
+  input: { flex: 1, color: "white", fontSize: 16 },
   registerButton: {
-    marginTop: 6,
-    backgroundColor: "#111827",
-    paddingVertical: 11,
-    borderRadius: 999,
+    backgroundColor: "#3b82f6",
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#1f2937",
+    marginTop: 8,
   },
-  registerButtonText: {
-    color: "#e5e7eb",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  footer: {
-    alignItems: "center",
-  },
-  footerText: {
-    fontSize: 11,
-    color: "#6b7280",
-  },
+  disabledButton: { backgroundColor: "#1d4ed8", opacity: 0.7 },
+  registerButtonText: { color: "white", fontSize: 16, fontWeight: "bold" },
+  loginLinkButton: { alignItems: "center", marginTop: 12 },
+  loginLinkText: { color: "#60a5fa", fontSize: 14 },
 });
+//ㅁㄴㅇㅁㄴㅇㄴㅁㅇ

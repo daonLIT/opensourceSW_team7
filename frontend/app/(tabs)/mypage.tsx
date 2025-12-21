@@ -1,4 +1,5 @@
 // app/(tabs)/mypage.tsx
+//123123
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
@@ -15,8 +16,12 @@ import {
   View,
 } from "react-native";
 
-import { clearUser, getUser, LoggedInUser, saveUser } from "@/util/utils/auth";
+// ✅ [수정 1] 없는 함수들(getUser 등) 대신 있는 함수(getAuth 등)로 교체
+import { clearAuth, getAuth, saveAuth } from "@/util/utils/auth";
+// ✅ [수정 2] 서버 주소 가져오기
+import { API_BASE_URL } from "@/constants/api";
 
+// (타입 정의는 그대로 둠)
 type UserProfile = {
   userId: string;
   nickname: string;
@@ -26,6 +31,7 @@ type UserProfile = {
   nextLevelPoints: number;
 };
 
+// ... LEVEL_META 그대로 유지 ...
 const LEVEL_META: Record<
   number,
   { name: string; emoji: string; description: string }
@@ -40,45 +46,52 @@ const LEVEL_META: Record<
 export default function MyPageScreen() {
   const router = useRouter();
 
-  const [user, setUser] = useState<LoggedInUser | null>(null);
+  // LoggedInUser 타입은 auth.ts에 정의된 대로 사용 (any로 처리하거나 타입 맞춤)
+  const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [newNickname, setNewNickname] = useState("");
 
-  // 1) 로그인 유저 불러오기 + 서버에서 프로필 가져오기
+  // 1) 로그인 유저 불러오기
   useEffect(() => {
     const init = async () => {
-      const u = await getUser();
-      if (!u) {
+      // ✅ [수정 3] getAuth() 사용
+      const auth = await getAuth();
+      if (!auth || !auth.user) {
         router.replace("/login");
         return;
       }
-      setUser(u);
-      await fetchProfile(u.id);
+      setUser(auth.user);
+      // id가 숫자라면 문자로 변환해서 전달
+      await fetchProfile(String(auth.user.id), auth.accessToken);
     };
     init();
   }, []);
 
-  // 프로필 요청 (백엔드와 연동될 부분)
-  const fetchProfile = async (userId: string) => {
+  // 프로필 요청
+  const fetchProfile = async (userId: string, token: string) => {
     try {
       setLoading(true);
 
-      // 🔽 실제 서버 주소로 바꾸면 됨
-      const res = await fetch(`http://YOUR_SERVER_URL/api/profile/${userId}`);
+      // ✅ [수정 4] YOUR_SERVER_URL -> API_BASE_URL 로 변경
+      // 현재 백엔드에는 /api/profile 이 없으므로 /auth/me 를 대신 호출해서 기본 정보만 가져옴
+      const res = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-      let data: Partial<UserProfile> = {};
+      let data: any = {};
       if (res.ok) {
         data = await res.json();
       }
 
+      // 백엔드에 레벨/포인트 기능이 없으므로 기본값(1레벨)으로 설정됨
       const finalProfile: UserProfile = {
         userId,
-        nickname: (data.nickname as string) || userId,
-        email: (data.email as string) || undefined,
-        level: (data.level as number) || 1,
+        nickname: data.name || userId, // 서버의 name을 닉네임으로 사용
+        email: data.email || undefined,
+        level: (data.level as number) || 1, 
         points: (data.points as number) || 0,
         nextLevelPoints: (data.nextLevelPoints as number) || 5,
       };
@@ -86,11 +99,10 @@ export default function MyPageScreen() {
       setProfile(finalProfile);
       setLoading(false);
 
-      // 레벨업 축하 체크
       await checkLevelUpToast(userId, finalProfile.level);
     } catch (e) {
       console.log(e);
-      // 서버가 아직 없을 때를 위한 더미 값
+      // 실패 시 더미 데이터
       const dummy: UserProfile = {
         userId,
         nickname: userId,
@@ -128,7 +140,8 @@ export default function MyPageScreen() {
         text: "로그아웃",
         style: "destructive",
         onPress: async () => {
-          await clearUser();
+          // ✅ [수정 5] clearAuth() 사용
+          await clearAuth();
           router.replace("/login");
         },
       },
@@ -138,11 +151,11 @@ export default function MyPageScreen() {
   // 닉네임 수정 열기
   const openEditNickname = () => {
     if (!user) return;
-    setNewNickname(user.nickname || "");
+    setNewNickname(user.name || ""); // user.nickname 대신 user.name 사용
     setEditModalVisible(true);
   };
 
-  // 닉네임 수정 저장
+  // 닉네임 수정 저장 (지금 백엔드에는 기능이 없어서 로컬만 바뀜)
   const saveNickname = async () => {
     if (!user || !newNickname.trim()) {
       Alert.alert("오류", "닉네임을 입력해 주세요.");
@@ -150,22 +163,28 @@ export default function MyPageScreen() {
     }
 
     try {
-      // 🔽 실제 서버 호출 (조장님이 구현)
-      await fetch(`http://YOUR_SERVER_URL/api/profile/${user.id}`, {
+      // ✅ [수정 6] API_BASE_URL 사용 (백엔드 구현 전이라 에러 날 수 있음 -> catch로 이동)
+      /* await fetch(`${API_BASE_URL}/api/profile/${user.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nickname: newNickname.trim() }),
       });
+      */
 
-      // 로컬 로그인 정보도 업데이트
-      const updatedUser: LoggedInUser = {
+      // 로컬 로그인 정보 업데이트
+      const updatedUser = {
         ...user,
-        nickname: newNickname.trim(),
+        name: newNickname.trim(), // nickname -> name
       };
-      await saveUser(updatedUser);
+      
+      // ✅ [수정 7] saveAuth 사용
+      const auth = await getAuth();
+      if (auth) {
+        await saveAuth({ ...auth, user: updatedUser });
+      }
+      
       setUser(updatedUser);
 
-      // 프로필에도 반영
       if (profile) {
         setProfile({
           ...profile,
@@ -174,7 +193,7 @@ export default function MyPageScreen() {
       }
 
       setEditModalVisible(false);
-      Alert.alert("완료", "닉네임이 변경되었습니다.");
+      Alert.alert("완료", "닉네임이 변경되었습니다. (로컬 반영)");
     } catch (e) {
       console.log(e);
       Alert.alert("오류", "닉네임 변경 중 문제가 발생했습니다.");
@@ -185,7 +204,7 @@ export default function MyPageScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color="white" />
           <Text style={styles.loadingText}>마이페이지 불러오는 중...</Text>
         </View>
       </SafeAreaView>
@@ -212,7 +231,7 @@ export default function MyPageScreen() {
         {/* 프로필 카드 */}
         <View style={styles.profileCard}>
           <View style={styles.profileRow}>
-            <View className="avatarCircle" style={styles.avatarCircle}>
+            <View style={styles.avatarCircle}>
               <Ionicons name="person" size={30} color="#0f172a" />
             </View>
 
@@ -223,7 +242,7 @@ export default function MyPageScreen() {
               <Text style={styles.idText}>ID: {user.id}</Text>
               <Text style={styles.emailText}>
                 이메일:{" "}
-                {profile.email ?? (user as any).email ?? "등록된 이메일이 없습니다."}
+                {profile.email ?? user.email ?? "등록된 이메일이 없습니다."}
               </Text>
             </View>
 
@@ -312,6 +331,7 @@ export default function MyPageScreen() {
   );
 }
 
+// 스타일은 그대로 유지 (변경 없음)
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#0f172a" },
   container: { flex: 1, padding: 20, gap: 16 },

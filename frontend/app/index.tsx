@@ -1,42 +1,37 @@
 // app/index.tsx
 import { Redirect } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { getUser } from "@/util/utils/auth"; // 
+import { View, ActivityIndicator, Platform } from "react-native";
+import { getAuth } from "@/util/utils/auth";
 
 export default function Index() {
-  const [loading, setLoading] = useState(true);
-  const [hasUser, setHasUser] = useState<boolean | null>(null);
+  const [to, setTo] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkUser = async () => {
-      const user = await getUser();
-      setHasUser(!!user);
-      setLoading(false);
+    const run = async () => {
+      try {
+        // ✅ 웹에서 getAuth가 불안정하면 일단 로그인 페이지로 보내기
+        if (Platform.OS === "web") {
+          setTo("/login");
+          return;
+        }
+
+        const auth = await getAuth();
+        setTo(auth?.accessToken ? "/(tabs)" : "/login");
+      } catch {
+        setTo("/login");
+      }
     };
-    checkUser();
+    run();
   }, []);
 
-  if (loading) {
-    // 잠깐 로딩 화면 (스플래시 느낌)
+  if (!to) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#020617",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <ActivityIndicator size="large" />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0f172a" }}>
+        <ActivityIndicator size="large" color="#ffffff" />
       </View>
     );
   }
 
-  // 유저가 있으면 바로 탭, 없으면 로그인
-  if (hasUser) {
-    return <Redirect href="/(tabs)" />;
-  } else {
-    return <Redirect href="/login" />;
-  }
+  return <Redirect href={to as any} />;
 }
