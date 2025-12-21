@@ -69,3 +69,6 @@ app-example
 
 # SQLite local database
 backend/fridge.db
+
+#예외 처리
+!recipe_main_clustering.csv
